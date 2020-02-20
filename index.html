@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>canvas</title>
+  <style>
+    *{ margin: 0; padding: 0; }
+    .wrapper{ padding: 20px; }
+
+    #canvas{
+
+    }
+  </style>
+</head>
+<body>
+
+  <div class="wrapper">
+
+    <canvas id="canvas" width="400" height="400"></canvas>
+  </div>
+
+  <script>
+
+    const DELAY = 20
+    let center = {}
+    const steps = 5
+    const maxRadius = 150
+    const scores = [ 2.5, 2, 4.5, 3.5, 5, 3.5 ]
+    const offCvs = document.createElement('canvas')
+    const bgCvs = document.createElement('canvas')
+    document.body.appendChild(offCvs)
+    document.body.appendChild(bgCvs)
+    let cvs, ctx, offCtx, bgCtx, cvsW, cvsH;
+    
+    window.addEventListener('DOMContentLoaded', () => {
+      
+      cvs = document.getElementById('canvas')
+      ctx = cvs.getContext('2d')
+
+      center = { x: cvs.width / 2, y: cvs.height / 2 }
+      // window.ctx = ctx
+      bgCvs.width = offCvs.width = cvsW = cvs.width
+      bgCvs.height = offCvs.height = cvsH = cvs.height
+      bgCtx = bgCvs.getContext('2d')
+      offCtx = offCvs.getContext('2d')
+
+      ctx.translate(center.x, center.y)
+      bgCtx.translate(center.x, center.y)
+      offCtx.translate(center.x, center.y)
+
+      bgCtx.strokeStyle = 'rgba(217, 217, 217)'
+
+      drawPolygon(steps, 30, maxRadius)
+      drawRadar(scores, steps, maxRadius)
+
+    }, false)
+
+    function clearRect (ctx) {
+      ctx.clearRect(-center.x, -center.y, cvsW, cvsH)
+    }
+
+    function drawRadar (scores, steps, radius) {
+      clearRect(offCtx)
+      offCtx.save()
+
+      const dots = getDots(radius, 6)
+
+      const res = dots.map(({x, y}, idx) => ({
+        x: scores[idx] / steps * x,
+        y: scores[idx] / steps * y,
+      }))
+
+      offCtx.beginPath()
+      offCtx.strokeStyle = 'red'
+      offCtx.lineWidth = 4
+      // offCtx.fillStyle = 'rgba(0,0,0,.2)'
+      offCtx.moveTo(0, 0)
+      for (let i = 0; i < (res.length); i++) {
+        const { x, y } = res[i]
+        // console.log(x, y)
+        i == 0
+          ? offCtx.moveTo(x, y)
+          : offCtx.lineTo(x, y)
+      }
+      offCtx.closePath()
+      offCtx.stroke()
+      offCtx.clip()
+
+      // offCtx.restore()
+
+      // ctx.drawImage(bgCvs, -center.x, -center.y)
+      // ctx.drawImage(offCvs, -center.x, -center.y)
+      // return;
+
+      // offCtx.strokeStyle = 'red'
+      offCtx.fillStyle = 'rgba(234, 115, 93, 0.5)'
+      // offCtx.globalCompositeOperation = "destination-cover"
+      setTimeout(() => {
+        fillRadar(maxRadius, 0, drawDots.bind(this, res))
+      }, DELAY)
+
+
+      // ctx.restore()
+
+      function fillRadar (radius, angle, cb) {
+
+        clearRect(offCtx)
+        
+        offCtx.beginPath()
+        offCtx.moveTo(0, 0)
+        offCtx.arc(0, 0, radius, 0, angle)
+        offCtx.fill()
+
+        clearRect(ctx)
+        ctx.drawImage(bgCvs, -center.x, -center.y)
+        ctx.drawImage(offCvs, -center.x, -center.y)
+
+        if (angle < 2 * Math.PI) {
+          angle += Math.PI / 10
+          if (angle == 2 * Math.PI) {
+            angle = 2 * Math.PI
+          }
+
+          setTimeout(() => {
+            fillRadar(radius, angle, cb)
+          }, DELAY);
+        } else {
+          cb()
+        }
+      }
+
+      window.fillRadar = fillRadar
+    }
+
+    function drawDots (dots) {
+
+      const maxRadius = 4
+
+      const rqDraw = (x, y, radius) => {
+
+        setTimeout(() => {
+          
+          ctx.beginPath()
+          ctx.fillStyle = 'red'
+          // ctx.fillStyle = 'rgba(234, 115, 93, 0.1)'
+          ctx.arc(x, y, radius, 0, 2 * Math.PI)
+          ctx.fill()
+
+          radius += 0.5
+          if (radius <= maxRadius) {
+            rqDraw(x, y, radius)
+          }
+
+        }, 25);
+      } 
+      ctx.save()
+
+      dots.forEach(({ x, y }) => {
+        rqDraw(x, y, 0)
+      })
+
+      ctx.restore()
+    }
+
+    function drawPolygon (steps, unit, radius) {
+
+      bgCtx.save()
+
+      let count = 0
+      let _radius = radius
+
+      // 多个正多边形的绘图
+      while (count++ < steps) {
+        let dots = getDots(_radius, 6)
+        const _dots = [ ...dots ]
+        // console.log('dots', _dots)
+
+        let dot = dots.shift()
+        bgCtx.moveTo(dot.x, dot.y)
+
+        while (dots.length > 0) {
+          dot = dots.shift()
+          bgCtx.lineTo(dot.x, dot.y)
+        }
+
+        bgCtx.stroke()
+        _radius = _radius - unit
+
+      }
+
+      // 中心——顶点连线
+      const cacheDots = getDots(radius, 6)
+      let cacheDot;
+      while ((cacheDot = cacheDots.shift()) != undefined) {
+        bgCtx.moveTo(0, 0)
+        bgCtx.lineTo(cacheDot.x, cacheDot.y)
+        bgCtx.stroke()
+      }
+
+      // 多边形顶点文案
+      const dots = getDots(radius, 6)
+      let dot;
+      while ((dot = dots.shift()) != undefined) {
+        bgCtx.fillText('hello', dot.x, dot.y + 20)
+      }
+
+      bgCtx.restore()
+    }
+
+    function getDots (radius, num) {
+
+      let alpha = 0
+      let dots = []
+
+      while (parseInt(alpha) <= parseInt(Math.PI * 2)) {
+        // console.log('alpha', alpha)
+        dots.push({ x: Math.cos(alpha) * radius, y: Math.sin(alpha) * radius })
+        alpha += Math.PI * 2 / num
+      }
+
+      // dots = dots.map(({x, y}) => ({ x: parseInt(x), y: parseInt(y) }))
+      return dots
+    }
+  </script>
+</body>
+</html>

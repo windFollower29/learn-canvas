@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>lottery</title>
+</head>
+<body>
+  <canvas id="lottery" width="600" height="600"></canvas>
+
+  <script src="./lib/tween.js"></script>
+
+  <script>
+
+    const OPTIONS = {
+      buttonIcon: './img/start.png',
+      prizes: [
+        { icon: './img/1.png', title: '5000元京东卡' },
+        { icon: './img/2.png', title: '1000元京东卡' },
+        { icon: './img/3.png', title: '100个比特币' },
+        { icon: './img/4.png', title: '50元话费' },
+        { icon: './img/5.png', title: '100元话费' },
+        { icon: './img/6.png', title: '500个比特币' },
+        { icon: './img/7.png', title: '500元京东卡' },
+      ]
+    };
+
+    let layoutCvs,
+      layoutCtx,
+      bgCvs,
+      bgCtx,
+      rotateCvs,
+      rotateCtx;
+
+    (({
+      buttonIcon,
+      prizes,
+      RADIUS = 200,
+      iconRatio = 3 / 5,
+      titleRatio = 4 / 5
+    }) => {
+
+      const loadPromise = src => new Promise(resolve => {
+        const img = new Image()
+        img.src = src
+        img.onload = img.onerror = resolve.bind(null, img)
+      })
+
+      const loadingButton = loadPromise(buttonIcon)
+      const loadingIcons = prizes.map(({ icon }) => loadPromise(icon))
+      // console.log(loadingButton, loadingIcons)
+
+      window.addEventListener('DOMContentLoaded', () => {
+
+        layoutCvs = document.getElementById('lottery')
+        layoutCtx = layoutCvs.getContext('2d')
+        window.layoutCtx = layoutCtx
+
+        bgCvs = document.createElement('canvas')
+        bgCtx = bgCvs.getContext('2d')
+
+        rotateCvs = document.createElement('canvas')
+        rotateCtx = rotateCvs.getContext('2d')
+
+        bgCvs.width = bgCvs.height = rotateCvs.width = rotateCvs.height = 420
+
+        bgCtx.translate(210, 210)
+        rotateCtx.translate(210, 210)
+        
+        // 画不动部分
+        drawBg(bgCtx)
+        layoutCtx.drawImage(bgCvs, 100, 100)
+
+        // 画变化部分
+        Promise.all([ loadingButton, ...loadingIcons ]).then(([ img, ...icons ]) => {
+          // console.log(icons)
+          motion(img, icons)
+
+          layoutCvs.addEventListener('click', checkClick.bind(null, img, icons), false)
+
+        })
+
+
+      }, false)
+
+      function checkClick (img, icons, e) {
+
+        let { x, y } = layoutCvs.getBoundingClientRect()
+
+        // 这里100是layoutCtx画图的偏移量
+        x = e.x - x - 100
+        y = e.y - y - 100
+
+        bgCtx.save()
+
+        bgCtx.beginPath()
+        const { width, height } = getButtonSize(img)
+        bgCtx.rect(-width/2, -height/2, width, height)
+
+        if (bgCtx.isPointInPath(x, y)) {
+          console.log('命中', x, y)
+          start(img, icons)
+        }
+
+        bgCtx.restore()
+
+      }
+
+      function clearCanvas (cvs, ctx) {
+        ctx.clearRect(0, 0, cvs.width, cvs.height)
+      }
+      
+      function start (img, icons) {
+        let count = 0
+        const angle = 6 * 360 + Math.random() * 360
+
+        const coords = { count: 0 }; // Start at (0, 0)
+        const tween = new TWEEN.Tween(coords) // Create a new tween that modifies 'coords'.
+                .to({ count: angle }, 4000) // Move to (300, 200) in 1 second.
+                .easing(TWEEN.Easing.Quadratic.InOut) // Use an easing function to make the animation smooth.
+                .onUpdate(() => { // Called after tween.js updates 'coords'.
+                  console.log(coords)
+                  const _angle = Math.PI / 180 * coords.count
+                  motion(img, icons, _angle)
+                })
+          .start()
+
+        requestAnimationFrame(function doMotion (time) {
+          // console.log(count)
+          // count++
+          // const _angle = Math.PI / 180 * count
+          // motion(img, icons, _angle)
+          // console.log(count, angle)
+          // angle > count && requestAnimationFrame(doMotion)
+
+          TWEEN.update(time)
+
+          requestAnimationFrame(doMotion)
+
+        })
+      }
+
+      function motion (img, icons, angle) {
+
+        drawLottery(icons, angle)
+        drawButton(img)
+        layoutCtx.drawImage(rotateCvs, 100, 100)
+      }
+
+      /*
+      * 
+      */
+      function drawLottery (icons, offsetAngle = 0) {
+
+        clearCanvas(rotateCvs, rotateCtx)
+        // rotateCtx.clearRect(0, 0, rotateCvs.width, rotateCvs.height)
+        rotateCtx.save()
+
+        const len = icons.length
+        const stepAngle = 2 * Math.PI / len
+
+        for (let i = 0; i < len; i++) {
+
+          const color = (['rgb(254, 231, 184)', 'rgb(254, 212, 130)', 'rgb(253, 184, 67)'])[i == len - 1 ? 1 : i % 3]
+          const icon = icons[i]
+          const { title } = prizes[i]
+
+          rotateCtx.beginPath()
+          rotateCtx.moveTo(0, 0)
+          rotateCtx.arc(0, 0, RADIUS - 5, i * stepAngle + offsetAngle, (i + 1) * stepAngle + offsetAngle)
+          rotateCtx.fillStyle = color
+          // rotateCtx.closePath()
+          // rotateCtx.stroke()
+          rotateCtx.fill()
+
+          
+          // 画奖品图片
+          rotateCtx.save()
+          const x = Math.cos((i + i + 1) / 2 * stepAngle + offsetAngle) * RADIUS
+          const y = Math.sin((i + i + 1) / 2 * stepAngle + offsetAngle) * RADIUS
+
+          rotateCtx.fillStyle = i === 0 ? 'red' : 'black'
+          rotateCtx.beginPath()
+          rotateCtx.translate(x * iconRatio, y * iconRatio)
+          rotateCtx.rotate( Math.PI / 2 + stepAngle / 2 + i * stepAngle + offsetAngle)
+          // rotateCtx.arc(0, 0, 4, 0, Math.PI * 2)
+          rotateCtx.drawImage(icon, -40, -40, 80, 80)
+          rotateCtx.fill()
+
+          rotateCtx.restore()
+
+          // 画奖品文案
+          rotateCtx.save()
+
+          rotateCtx.translate(x * titleRatio, y * titleRatio)
+          rotateCtx.rotate( Math.PI / 2 + stepAngle / 2 + i * stepAngle + offsetAngle)
+          // rotateCtx.font = '16px Arial'
+          rotateCtx.font = rotateCtx.font.replace(/\d+px/, '16px')
+          rotateCtx.textAlign = 'center'
+          rotateCtx.fillStyle = 'black'
+          rotateCtx.fillText(title, 0, 0)
+
+          rotateCtx.restore()
+        }
+
+
+        rotateCtx.restore()
+        // rotateCtx.rotate(Math.PI/2)
+
+      }
+
+      function getButtonSize (img) {
+        let { width, height } = img
+
+        const ratio = height / width
+        width = 100
+        height = width * ratio
+
+        return { width, height }
+      }
+
+      function drawButton (img) {
+
+        rotateCtx.save()
+
+        rotateCtx.moveTo(0, 0)
+
+        // console.log(img)
+        // let { width, height } = img
+
+        // const ratio = height / width
+        // width = 100
+        // height = width * ratio
+        const { width, height } = getButtonSize(img)
+
+        rotateCtx.drawImage(img, - width / 2, - height / 2, width, height)
+
+        rotateCtx.restore()
+
+      }
+
+      function drawBg (ctx) {
+
+        ctx.save()
+
+        ctx.arc(0, 0, RADIUS, 0, 2 * Math.PI)
+        ctx.strokeStyle = 'rgb(242, 172, 57)'
+        ctx.lineWidth = 10
+        ctx.stroke()
+
+        ctx.restore()
+      }
+
+    })(OPTIONS)
+
+
+  </script>
+</body>
+</html>

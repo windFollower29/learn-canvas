@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+<body>
+  <canvas id="canvas" width="300" height="400"></canvas>
+
+  <script>
+    
+    window.addEventListener('DOMContentLoaded', () => {
+
+      const cvs = document.getElementById('canvas')
+      const ctx = cvs.getContext('2d')
+      test(ctx, () => { ctx.globalCompositeOperation = 'source-atop' })
+
+      const offCvs = cvs.cloneNode()
+      document.body.appendChild(offCvs)
+      const offCtx = offCvs.getContext('2d')
+      // offCtx.drawImage(cvs, 0, 0)
+      test(offCtx)
+      
+
+    }, false)
+
+
+    function test (ctx, fn) {
+
+      ctx.save()
+      ctx.fillStyle = 'blue'
+      ctx.fillRect(0, 0, 200, 200)
+      ctx.restore()
+
+      fn && fn()
+      // ctx.globalCompositeOperation = 'copy'
+      // context.globalCompositeOperation='source-over | copy | destination-in | destination-out | destination-over | lighter | source-atop | source-in | source-out | xor';
+      
+      ctx.save()
+      ctx.fillStyle = 'red'
+      ctx.fillRect(100, 100, 200, 200)
+      ctx.restore()
+    }
+    
+  </script>
+</body>
+</html>
