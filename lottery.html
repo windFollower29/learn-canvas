@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0,maximum-scale=1,minimum-scale=1">
   <title>lottery</title>
   <!-- <script src="./hidpi-canvas.js"></script> -->
 </head>
@@ -32,6 +32,7 @@
       bgCtx,
       rotateCvs,
       rotateCtx;
+    let pixelRatio;
 
     (({
       buttonIcon,
@@ -49,6 +50,20 @@
         img.onload = img.onerror = resolve.bind(null, img)
       })
 
+      const getPixelRatio = function (context) {
+        var backingStore = context.backingStorePixelRatio ||
+            context.webkitBackingStorePixelRatio ||
+            context.mozBackingStorePixelRatio ||
+            context.msBackingStorePixelRatio ||
+            context.oBackingStorePixelRatio ||
+            context.backingStorePixelRatio || 1;
+
+        return (window.devicePixelRatio || 1) / backingStore;
+      }
+
+      // 适配高清屏（window.devicePixelRatio不为1）,把canvas渲染的实际像素扩大为devicePixelRatio倍数，然后把style限制为原来尺寸
+      const getAdaptRatio = size => size * pixelRatio
+
       const loadingButton = loadPromise(buttonIcon)
       const loadingIcons = prizes.map(({ icon }) => loadPromise(icon))
       // console.log(loadingButton, loadingIcons)
@@ -58,21 +73,32 @@
         layoutCvs = document.getElementById('lottery')
         layoutCtx = layoutCvs.getContext('2d')
         window.layoutCtx = layoutCtx
+        window.pixelRatio = pixelRatio = 2 || getPixelRatio(layoutCtx)
 
         bgCvs = document.createElement('canvas')
         bgCtx = bgCvs.getContext('2d')
 
-        rotateCvs = document.createElement('canvas')
+        window.rotateCvs = rotateCvs = document.createElement('canvas')
         rotateCtx = rotateCvs.getContext('2d')
+        
+        const offlineCanvasSize = 420
+        bgCvs.width = bgCvs.height = rotateCvs.width = rotateCvs.height = offlineCanvasSize * pixelRatio
+        adaptMobile(offlineCanvasSize)
 
-        bgCvs.width = bgCvs.height = rotateCvs.width = rotateCvs.height = 420
-
-        bgCtx.translate(210, 210)
-        rotateCtx.translate(210, 210)
+        // debug
+        document.body.appendChild(bgCvs)
+        document.body.appendChild(rotateCvs)
+        
+        // bgCtx.translate(210, 210)
+        // rotateCtx.translate(210, 210)
+        const temp = 210 * pixelRatio
+        bgCtx.translate(temp, temp)
+        rotateCtx.translate(temp, temp)
         
         // 画不动部分
         drawBg(bgCtx)
-        layoutCtx.drawImage(bgCvs, 100, 100)
+        layoutCtx.drawImage(bgCvs, getAdaptRatio(100), getAdaptRatio(100))
+        // layoutCtx.drawImage(bgCvs, 100, 100, layoutCvs.width * pixelRatio, layoutCvs.height * pixelRatio)
 
         // 画变化部分
         Promise.all([ loadingButton, ...loadingIcons ]).then(([ img, ...icons ]) => {
@@ -86,26 +112,46 @@
 
       }, false)
 
+      function adaptMobile (offlineCanvasSize) {
+
+        layoutCvs.style.width = layoutCvs.style.height = `${layoutCvs.width}px`
+        layoutCvs.width = layoutCvs.height = getAdaptRatio(layoutCvs.width)
+
+        bgCvs.style.width = bgCvs.style.height 
+          = rotateCvs.style.width = rotateCvs.style.height 
+          = `${offlineCanvasSize / pixelRatio}px`
+
+
+        // const offset = 210 / pixelRatio
+        // bgCtx.translate(offset, offset)
+        // rotateCtx.translate(offset, offset)
+      }
+
       function checkClick (img, icons, e) {
 
         let { x, y } = layoutCvs.getBoundingClientRect()
 
         // 这里100是layoutCtx画图的偏移量
-        x = e.x - x - 100
-        y = e.y - y - 100
+        x = getAdaptRatio(e.x - x )
+        y = getAdaptRatio(e.y - y )
+        // console.log(x, y, e.x, e.y)
 
-        bgCtx.save()
+        debugDraw(layoutCtx, x, y)
 
-        bgCtx.beginPath()
+        layoutCtx.save()
+
+        layoutCtx.beginPath()
+        const offset = getAdaptRatio(100 + 210)
+        layoutCtx.translate(offset, offset)
         const { width, height } = getButtonSize(img)
-        bgCtx.rect(-width/2, -height/2, width, height)
+        layoutCtx.rect(-getAdaptRatio(width/2), -getAdaptRatio(height/2), getAdaptRatio(width), getAdaptRatio(height))
 
-        if (bgCtx.isPointInPath(x, y)) {
+        if (layoutCtx.isPointInPath(x, y)) {
           console.log('命中', x, y)
           start(img, icons)
         }
 
-        bgCtx.restore()
+        layoutCtx.restore()
 
       }
 
@@ -150,7 +196,7 @@
 
         drawLottery(icons, angle)
         drawButton(img)
-        layoutCtx.drawImage(rotateCvs, 100, 100)
+        layoutCtx.drawImage(rotateCvs, getAdaptRatio(100), getAdaptRatio(100))
       }
 
       /*
@@ -173,24 +219,28 @@
 
           rotateCtx.beginPath()
           rotateCtx.moveTo(0, 0)
-          rotateCtx.arc(0, 0, RADIUS - 5, i * stepAngle + offsetAngle, (i + 1) * stepAngle + offsetAngle)
+          rotateCtx.arc(0, 0, getAdaptRatio(RADIUS - 5), i * stepAngle + offsetAngle, (i + 1) * stepAngle + offsetAngle)
           rotateCtx.fillStyle = color
           // rotateCtx.closePath()
           // rotateCtx.stroke()
           rotateCtx.fill()
-
+          
           
           // 画奖品图片
           rotateCtx.save()
+
+          // TODO: 为什么这里不用调整尺寸
+          // RADIUS = getAdaptRatio(RADIUS)
           const x = Math.cos((i + i + 1) / 2 * stepAngle + offsetAngle) * RADIUS
           const y = Math.sin((i + i + 1) / 2 * stepAngle + offsetAngle) * RADIUS
 
           rotateCtx.fillStyle = i === 0 ? 'red' : 'black'
           rotateCtx.beginPath()
-          rotateCtx.translate(x * iconRatio, y * iconRatio)
+          rotateCtx.translate(getAdaptRatio(x) * iconRatio, getAdaptRatio(y) * iconRatio)
           rotateCtx.rotate( Math.PI / 2 + stepAngle / 2 + i * stepAngle + offsetAngle)
           // rotateCtx.arc(0, 0, 4, 0, Math.PI * 2)
-          rotateCtx.drawImage(icon, -40, -40, 80, 80)
+          rotateCtx.drawImage(icon, -40 * pixelRatio, -40 * pixelRatio, 80 * pixelRatio, 80 * pixelRatio)
+          // rotateCtx.drawImage(icon, -40, -40, 80 * pixelRatio, 80 * pixelRatio)
           rotateCtx.fill()
 
           rotateCtx.restore()
@@ -198,10 +248,10 @@
           // 画奖品文案
           rotateCtx.save()
 
-          rotateCtx.translate(x * titleRatio, y * titleRatio)
+          rotateCtx.translate(x * getAdaptRatio(titleRatio), y * getAdaptRatio(titleRatio))
           rotateCtx.rotate( Math.PI / 2 + stepAngle / 2 + i * stepAngle + offsetAngle)
           // rotateCtx.font = '16px Arial'
-          rotateCtx.font = rotateCtx.font.replace(/\d+px/, '16px')
+          rotateCtx.font = rotateCtx.font.replace(/\d+px/, `${getAdaptRatio(16)}px`)
           rotateCtx.textAlign = 'center'
           rotateCtx.fillStyle = 'black'
           rotateCtx.fillText(title, 0, 0)
@@ -239,7 +289,7 @@
         // height = width * ratio
         const { width, height } = getButtonSize(img)
 
-        rotateCtx.drawImage(img, - width / 2, - height / 2, width, height)
+        rotateCtx.drawImage(img, -getAdaptRatio(width / 2), -getAdaptRatio(height / 2), getAdaptRatio(width), getAdaptRatio(height))
 
         rotateCtx.restore()
 
@@ -249,9 +299,9 @@
 
         ctx.save()
 
-        ctx.arc(0, 0, RADIUS, 0, 2 * Math.PI)
+        ctx.arc(0, 0, getAdaptRatio(RADIUS), 0, 2 * Math.PI)
         ctx.strokeStyle = 'rgb(242, 172, 57)'
-        ctx.lineWidth = 10
+        ctx.lineWidth = getAdaptRatio(10)
         ctx.stroke()
 
         ctx.restore()
@@ -259,6 +309,17 @@
 
     })(OPTIONS)
 
+    function debugDraw (ctx, x, y) {
+      ctx.save()
+
+      ctx.beginPath()
+      ctx.translate(x, y)
+      ctx.fillStyle = 'green'
+      ctx.arc(0, 0, 6, 0, 2 * Math.PI)
+      ctx.fill()
+
+      ctx.restore()
+    }
 
   </script>
 </body>
