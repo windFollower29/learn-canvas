@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+  <!-- <script src="hidpi-canvas.js"></script> -->
+</head>
+<body>
+  <canvas id="canvas" width="300" height="300" ></canvas>
+
+
+  <script>
+    var getPixelRatio = function(context) {
+      var backingStore = context.backingStorePixelRatio ||
+          context.webkitBackingStorePixelRatio ||
+          context.mozBackingStorePixelRatio ||
+          context.msBackingStorePixelRatio ||
+          context.oBackingStorePixelRatio ||
+          context.backingStorePixelRatio || 1;
+
+      return (window.devicePixelRatio || 1) / backingStore;
+    }
+
+    function convertCanvasToImage(canvas) {
+      var image = new Image();
+      image.style.width = `${canvas.style.width}`
+      image.style.height = `${canvas.style.height}`
+      image.src = canvas.toDataURL("image/jpeg");
+      return image;
+    }
+
+    function base64Img2Blob(code){
+        var parts = code.split(';base64,');
+        var contentType = parts[0].split(':')[1];
+        var raw = window.atob(parts[1]);
+        var rawLength = raw.length;
+
+        var uInt8Array = new Uint8Array(rawLength);
+
+        for (var i = 0; i < rawLength; ++i) {
+          uInt8Array[i] = raw.charCodeAt(i);
+        }
+
+        return new Blob([uInt8Array], {type: contentType}); 
+    }
+    function downloadFile(fileName, content){
+        
+        var aLink = document.createElement('a');
+        var blob = base64Img2Blob(content); //new Blob([content]);
+      
+        var evt = document.createEvent("HTMLEvents");
+        evt.initEvent("click", false, false);//initEvent 不加后两个参数在FF下会报错
+        aLink.download = fileName;
+        aLink.href = URL.createObjectURL(blob);
+  
+        aLink.dispatchEvent(evt);
+    }
+
+    function dataURLtoBlob(dataurl) {
+      var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+      while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new Blob([u8arr], {type:mime});
+    }
+
+
+    window.addEventListener('DOMContentLoaded', () => {
+      var cvs = document.getElementById('canvas')
+      var ctx = cvs.getContext('2d')
+      var ratio = getPixelRatio(ctx)
+
+      console.log('ratio: ', ratio)
+
+      // cvs.style.width = `{ratio * 300}px`
+      // cvs.style.height = `{ratio * 300}px`
+
+      // (function () {
+        var img = new Image(300, 300)
+        // img.setAttribute('crossOrigin', 'anonymous');
+
+        img.onload = () => {
+          document.body.appendChild(img)
+          // ctx.drawImage(img, 0, 0, 300 * ratio, 300 * ratio)
+          ctx.drawImage(img, 0, 0, 300, 300)
+          ctx.fillText("我是清晰的文字", 250, 50)
+          // cvs.style.width = `${300 / ratio}px`
+          // cvs.style.height = `${300 / ratio}px`
+
+          // console.log('getImageData: ', ctx.getImageData(0, 0, 300 * ratio, 300 * ratio).data)
+
+          let toImg = convertCanvasToImage(cvs)
+          // console.log(toImg)
+          // console.log(cvs.toDataURL("image/png"))
+          // downloadFile('canvas2image', cvs.toDataURL("image/png"))
+
+          document.body.appendChild(convertCanvasToImage(cvs))
+
+          let imageUrl = window.URL.createObjectURL(dataURLtoBlob(cvs.toDataURL("image/png")))
+
+          // console.log('imageUrl: ', imageUrl)
+
+        }
+        img.onerror = () => {
+          // ctx.drawImage(img, 10, 10)
+          console.log('图片加载失败')
+        }
+        img.src = `chutian.gif`
+      // })()
+
+
+    }, false)
+  </script>
+</body>
+</html>

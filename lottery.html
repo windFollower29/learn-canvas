@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>lottery</title>
+  <!-- <script src="./hidpi-canvas.js"></script> -->
 </head>
 <body>
   <canvas id="lottery" width="600" height="600"></canvas>
@@ -39,6 +40,8 @@
       iconRatio = 3 / 5,
       titleRatio = 4 / 5
     }) => {
+
+      let rotateCount = 0
 
       const loadPromise = src => new Promise(resolve => {
         const img = new Image()
@@ -111,15 +114,18 @@
       }
       
       function start (img, icons) {
-        let count = 0
+        // let count = 0
+        // 随机定一个旋转角度
         const angle = 6 * 360 + Math.random() * 360
 
-        const coords = { count: 0 }; // Start at (0, 0)
+        const coords = { count: rotateCount }; // Start at (0, 0)
         const tween = new TWEEN.Tween(coords) // Create a new tween that modifies 'coords'.
-                .to({ count: angle }, 4000) // Move to (300, 200) in 1 second.
+                .to({ count: angle + rotateCount }, 4000) // Move to (300, 200) in 1 second.
                 .easing(TWEEN.Easing.Quadratic.InOut) // Use an easing function to make the animation smooth.
-                .onUpdate(() => { // Called after tween.js updates 'coords'.
-                  console.log(coords)
+                .onUpdate((a, b) => { // Called after tween.js updates 'coords'.
+                  // console.log(coords, a, b)
+                  // 记录最新旋转角度，下一次抽奖从该角度启动
+                  rotateCount = coords.count
                   const _angle = Math.PI / 180 * coords.count
                   motion(img, icons, _angle)
                 })
